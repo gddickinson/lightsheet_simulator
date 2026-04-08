@@ -29,8 +29,6 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtCore import pyqtSlot
 from scipy.spatial.transform import Rotation
 
-#from data_generator import DataGenerator
-#from volume_processor import VolumeProcessor
 
 def line_3d(x0, y0, z0, x1, y1, z1):
     """Generate coordinates of a 3D line using Bresenham's algorithm."""
