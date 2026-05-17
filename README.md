@@ -83,3 +83,7 @@ Built with **PyQt5** and **pyqtgraph.opengl** for 3D rendering.
 | Image processing | scikit-image, scipy.ndimage, tifffile |
 | Spatial analysis | scipy.spatial (cKDTree), scipy.spatial.transform |
 | Visualization | matplotlib (for 2D plots), pyqtgraph.opengl (for 3D) |
+
+
+---
+*Built with AI assistance from [Claude (Anthropic)](https://claude.com/).*
