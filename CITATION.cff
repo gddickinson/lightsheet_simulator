@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "lightsheet_simulator"
+abstract: "A Python-based simulation tool for generating and visualizing 3D biological datasets, typically used for testing light-sheet microscopy analysis pipelines."
+authors:
+  - family-names: Dickinson
+    given-names: "George D."
+    orcid: https://orcid.org/0000-0001-7711-0388
+    affiliation: University of California, Irvine
+repository-code: "https://github.com/gddickinson/lightsheet_simulator"
+url: "https://github.com/gddickinson/lightsheet_simulator"
+license: MIT
+date-released: 2025-12-17
