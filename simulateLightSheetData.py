@@ -337,7 +337,10 @@ class BiologicalSimulator:
                     )
                     rr, cc, zz = line_3d(soma_center[0], soma_center[1], soma_center[2],
                                          end_point[0], end_point[1], end_point[2])
-                    dendrites[rr, cc, zz] = True
+                    # keep only the part of the line inside the volume (negative indices would wrap round)
+                    inside = ((rr >= 0) & (rr < size[0]) & (cc >= 0) & (cc < size[1])
+                              & (zz >= 0) & (zz < size[2]))
+                    dendrites[rr[inside], cc[inside], zz[inside]] = True
 
                 dendrites = binary_dilation(dendrites, iterations=2)
 

@@ -34,3 +34,26 @@ class TestLine3DReachesEndpoint:
         t = (pts - p0) @ d / (d @ d)
         dist = np.linalg.norm(pts - (p0 + t[:, None] * d), axis=1)
         assert dist.max() <= 1.0
+
+
+class TestDendritesStayInVolume:
+    """Dendrite end points outside the volume raised IndexError (or wrapped round to the far side if negative)."""
+
+    @pytest.mark.parametrize("seed", range(12))
+    def test_long_dendrites(self, seed):
+        from simulator import BiologicalSimulator
+        size = (30, 100, 100)
+        np.random.seed(seed)
+        shape, interior, _ = BiologicalSimulator(size, 1).generate_cell_shape("neuron", size, dendrite_length=48)
+        assert shape.shape == size and interior.sum() > 0
+
+    def test_no_wraparound(self, monkeypatch):
+        from simulator import BiologicalSimulator
+        size = (12, 40, 40)
+        # one dendrite pointing straight down -y from the soma (y=20) with length 30: its far end is at y=-10
+        monkeypatch.setattr(np.random, "uniform", lambda *a, **k: 1.5 * np.pi)
+        np.random.seed(0)
+        _, interior, _ = BiologicalSimulator(size, 1).generate_cell_shape(
+            "neuron", size, soma_radius=3, axon_length=10, axon_width=2, num_dendrites=1, dendrite_length=30)
+        assert interior[:, :3, 18:23].sum() > 0  # the dendrite reaches the y=0 edge
+        assert interior[:, 26:, :].sum() == 0  # and does not wrap round to the far y edge

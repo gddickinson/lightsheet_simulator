@@ -344,7 +344,10 @@ class BiologicalSimulator:
                         soma_center[0], soma_center[1], soma_center[2],
                         end_pt[0], end_pt[1], end_pt[2],
                     )
-                    dendrites[rr, cc, zz] = True
+                    # keep only the part of the line inside the volume (negative indices would wrap round)
+                    inside = ((rr >= 0) & (rr < size[0]) & (cc >= 0) & (cc < size[1])
+                              & (zz >= 0) & (zz < size[2]))
+                    dendrites[rr[inside], cc[inside], zz[inside]] = True
                 dendrites = binary_dilation(dendrites, iterations=2)
 
                 cell_interior = soma | axon | terminals | dendrites
