@@ -651,7 +651,8 @@ class BiologicalSimulationWidget(QWidget):
             'nucleus_thickness': self.nucleus_thickness.value(),
             'er_density': self.er_density.value(),
             'cell_type': self.cell_type_combo.currentText(),
-            'pixel_size': (self.pixel_size_x.value(), self.pixel_size_y.value(), self.pixel_size_z.value()),
+            # (z, y, x): the order BiologicalSimulator expects (the form shows x, y, z)
+            'pixel_size': (self.pixel_size_z.value(), self.pixel_size_y.value(), self.pixel_size_x.value()),
             'soma_radius': self.soma_radius.value(),
             'axon_length': self.axon_length.value(),
             'axon_width': self.axon_width.value(),

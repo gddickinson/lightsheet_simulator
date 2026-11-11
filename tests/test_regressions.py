@@ -57,3 +57,27 @@ class TestDendritesStayInVolume:
             "neuron", size, soma_radius=3, axon_length=10, axon_width=2, num_dendrites=1, dendrite_length=30)
         assert interior[:, :3, 18:23].sum() > 0  # the dendrite reaches the y=0 edge
         assert interior[:, 26:, :].sum() == 0  # and does not wrap round to the far y edge
+
+
+class TestPixelSizeOrder:
+    """The simulation form sent pixel size as (x, y, z) but the simulator reads it as (z, y, x)."""
+
+    @pytest.fixture(scope="class")
+    def qapp(self):
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        pytest.importorskip("PyQt5")
+        from PyQt5.QtWidgets import QApplication
+        return QApplication.instance() or QApplication([])
+
+    @pytest.mark.parametrize("module", ["gui.simulation_widgets", "simulateLightSheetData"])
+    def test_emitted_order_is_zyx(self, qapp, module):
+        import importlib
+        mod = importlib.import_module(module)
+        w = mod.BiologicalSimulationWidget()
+        w.pixel_size_x.setValue(0.3)
+        w.pixel_size_y.setValue(0.4)
+        w.pixel_size_z.setValue(2.0)
+        got = []
+        w.simulationRequested.connect(got.append)
+        w.simulate_button.click()
+        assert tuple(got[0]["pixel_size"]) == pytest.approx((2.0, 0.4, 0.3))
