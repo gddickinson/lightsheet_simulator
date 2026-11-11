@@ -357,11 +357,15 @@ class BiologicalSimulator:
                 outer_shape = z < height
                 inner_shape = z < (height - membrane_thickness)
                 cell_shape = outer_shape ^ inner_shape
+                cell_interior = inner_shape
+                cell_membrane = cell_shape
 
             elif cell_type == 'muscle':
                 outer_shape = ((y - soma_center[1])*pixel_size[1])**2 + ((z - soma_center[0])*pixel_size[0])**2 <= (min(size)//4)**2
                 inner_shape = ((y - soma_center[1])*pixel_size[1])**2 + ((z - soma_center[0])*pixel_size[0])**2 <= (min(size)//4 - membrane_thickness)**2
                 cell_shape = outer_shape ^ inner_shape
+                cell_interior = inner_shape
+                cell_membrane = cell_shape
 
             else:
                 raise ValueError(f"Unknown cell type: {cell_type}")
@@ -377,6 +381,9 @@ class BiologicalSimulator:
             #plt.close()
 
             self.logger.info(f"{cell_type} cell shape generated successfully")
+            # epithelial / muscle masks depend on fewer axes (ogrid shapes (z,1,1) / (z,y,1)): fill the volume
+            cell_shape, cell_interior, cell_membrane = (
+                np.broadcast_to(a, tuple(size)) for a in (cell_shape, cell_interior, cell_membrane))
             return cell_shape.astype(float), cell_interior.astype(float), cell_membrane.astype(float)
 
 

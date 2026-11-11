@@ -379,6 +379,9 @@ class BiologicalSimulator:
             else:
                 raise ValueError(f"Unknown cell type: {cell_type}")
 
+            # epithelial / muscle masks depend on fewer axes (ogrid shapes (z,1,1) / (z,y,1)): fill the volume
+            cell_shape, cell_interior, cell_membrane = (
+                np.broadcast_to(a, tuple(size)) for a in (cell_shape, cell_interior, cell_membrane))
             non_zero = np.argwhere(cell_shape > 0)
             self.logger.info(
                 f"Non-zero cell shape coordinates: min={non_zero.min(axis=0)}, max={non_zero.max(axis=0)}"

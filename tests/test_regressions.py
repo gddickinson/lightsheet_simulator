@@ -81,3 +81,39 @@ class TestPixelSizeOrder:
         w.simulationRequested.connect(got.append)
         w.simulate_button.click()
         assert tuple(got[0]["pixel_size"]) == pytest.approx((2.0, 0.4, 0.3))
+
+
+class TestCellShapesFillTheVolume:
+    """Epithelial and muscle shapes came back as (z,1,1) / (z,y,1) arrays, so stacking them with the nucleus/ER
+    channels failed ("all input arrays must have the same shape") and the desktop Simulate showed an error."""
+
+    def _simulators(self):
+        from simulator import BiologicalSimulator
+        sims = [BiologicalSimulator]
+        try:
+            os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+            import simulateLightSheetData
+            sims.append(simulateLightSheetData.BiologicalSimulator)
+        except ImportError:
+            pass
+        return sims
+
+    @pytest.mark.parametrize("cell_type", ["spherical", "neuron", "epithelial", "muscle"])
+    def test_full_shape(self, cell_type):
+        size = (12, 30, 30)
+        for cls in self._simulators():
+            np.random.seed(0)
+            arrays = cls(size, 1).generate_cell_shape(cell_type, size, cell_radius=8, soma_radius=4,
+                                                      axon_length=8, dendrite_length=9)
+            for a in arrays:
+                assert a.shape == size, (cls.__module__, cell_type, a.shape)
+
+    def test_pipeline_stacks_all_structures(self):
+        from simulator import BiologicalSimulator
+        from structure_pipeline import simulate_structures, stack_channels
+        params = {"cellular_structure": "Cell Membrane + Nucleus + ER", "cell_type": "epithelial",
+                  "pixel_size": (1, 1, 1), "membrane_thickness": 1, "cell_radius": 8, "soma_radius": 5,
+                  "axon_length": 10, "axon_width": 2, "num_dendrites": 3, "dendrite_length": 8,
+                  "nucleus_radius": 3, "er_density": 0.1}
+        np.random.seed(0)
+        assert stack_channels(simulate_structures(BiologicalSimulator((12, 30, 30), 1), params), 2).shape == (2, 3, 12, 30, 30)
