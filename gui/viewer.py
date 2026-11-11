@@ -29,9 +29,11 @@ from matplotlib import pyplot as plt
 from skimage.feature import blob_log
 
 from simulator import BiologicalSimulator
+from structure_pipeline import simulate_structures
 from data_generator import DataGenerator, VolumeProcessor
 from blob_analysis import BlobAnalyzer, BlobAnalysisDialog, BlobResultsDialog, TimeSeriesDialog
-from gui.simulation_widgets import BiologicalSimulationWindow
+from gui.simulation_widgets import BiologicalSimulationWindow, _spin
+from sim_params import BLOB_CHANNELS, BLOB_INTENSITY_RANGE, BLOB_SIGMA_RANGE, BLOB_SPECS, NUM_TIME_POINTS, VOLUME_SIZE_ZYX
 
 
 class LightsheetViewer(QMainWindow):
@@ -46,7 +48,7 @@ class LightsheetViewer(QMainWindow):
         self.data_generator = DataGenerator()
 
         self.channel_colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
-        self.biological_simulator = BiologicalSimulator(size=(30, 100, 100), num_time_points=10)
+        self.biological_simulator = BiologicalSimulator(size=VOLUME_SIZE_ZYX, num_time_points=NUM_TIME_POINTS)
         self.biological_simulation_window = None
 
         self._setup_channel_controls_widget()
@@ -128,29 +130,19 @@ class LightsheetViewer(QMainWindow):
         layout = QVBoxLayout(w)
 
         layout.addWidget(QLabel("Number of Volumes:"))
-        self.numVolumesSpinBox = QSpinBox()
-        self.numVolumesSpinBox.setRange(1, 100)
-        self.numVolumesSpinBox.setValue(10)
+        self.numVolumesSpinBox = _spin(BLOB_SPECS["num_volumes"])
         layout.addWidget(self.numVolumesSpinBox)
 
         layout.addWidget(QLabel("Number of Blobs:"))
-        self.numBlobsSpinBox = QSpinBox()
-        self.numBlobsSpinBox.setRange(1, 100)
-        self.numBlobsSpinBox.setValue(30)
+        self.numBlobsSpinBox = _spin(BLOB_SPECS["num_blobs"])
         layout.addWidget(self.numBlobsSpinBox)
 
         layout.addWidget(QLabel("Noise Level:"))
-        self.noiseLevelSpinBox = QDoubleSpinBox()
-        self.noiseLevelSpinBox.setRange(0, 1)
-        self.noiseLevelSpinBox.setSingleStep(0.01)
-        self.noiseLevelSpinBox.setValue(0.02)
+        self.noiseLevelSpinBox = _spin(BLOB_SPECS["noise_level"], double=True)
         layout.addWidget(self.noiseLevelSpinBox)
 
         layout.addWidget(QLabel("Movement Speed:"))
-        self.movementSpeedSpinBox = QDoubleSpinBox()
-        self.movementSpeedSpinBox.setRange(0, 10)
-        self.movementSpeedSpinBox.setSingleStep(0.1)
-        self.movementSpeedSpinBox.setValue(0.5)
+        self.movementSpeedSpinBox = _spin(BLOB_SPECS["movement_speed"], double=True)
         layout.addWidget(self.movementSpeedSpinBox)
 
         self.structuredDataCheck = QCheckBox("Generate Structured Data")
@@ -421,38 +413,13 @@ class LightsheetViewer(QMainWindow):
                 self.logger.info("Active transport simulation not yet implemented")
 
             if params["cellular_structure"] != "None":
-                soma_center = tuple(s // 2 for s in self.biological_simulator.size)
-                px = params["pixel_size"]
-                cell_shape, cell_interior, cell_membrane = self.biological_simulator.generate_cell_shape(
-                    params["cell_type"], self.biological_simulator.size, px,
-                    membrane_thickness=params["membrane_thickness"],
-                    cell_radius=params["cell_radius"],
-                    soma_radius=params["soma_radius"],
-                    axon_length=params["axon_length"],
-                    axon_width=params["axon_width"],
-                    num_dendrites=params["num_dendrites"],
-                    dendrite_length=params["dendrite_length"],
-                )
                 ntp = self.biological_simulator.num_time_points
-                nuc_r = max(5, min(params["nucleus_radius"], params["soma_radius"] // 2))
-
-                if "Cell Membrane" in params["cellular_structure"]:
-                    ts = np.repeat(cell_membrane[np.newaxis, np.newaxis], ntp, axis=0)
-                    self.data = ts
-
-                if "Nucleus" in params["cellular_structure"]:
-                    nd, _ = self.biological_simulator.generate_nucleus(
-                        cell_interior, soma_center, nuc_r, pixel_size=px
-                    )
-                    ts = np.repeat(nd[np.newaxis, np.newaxis], ntp, axis=0)
-                    self.data = ts if self.data is None else np.concatenate((self.data, ts), axis=1)
-
-                if "ER" in params["cellular_structure"]:
-                    er = self.biological_simulator.generate_er(
-                        cell_shape, soma_center, nuc_r, params["er_density"], px
-                    )
-                    ts = np.repeat(er[np.newaxis, np.newaxis], ntp, axis=0)
-                    self.data = ts if self.data is None else np.concatenate((self.data, ts), axis=1)
+                for name, vol in simulate_structures(self.biological_simulator, params):
+                    ts = np.repeat(vol[np.newaxis, np.newaxis], ntp, axis=0)
+                    if name == "membrane" or self.data is None:
+                        self.data = ts
+                    else:
+                        self.data = np.concatenate((self.data, ts), axis=1)
 
                 self._update_ui_for_new_data()
                 self._update_views()
@@ -478,8 +445,8 @@ class LightsheetViewer(QMainWindow):
             nb = self.numBlobsSpinBox.value()
             nl = self.noiseLevelSpinBox.value()
             ms = self.movementSpeedSpinBox.value()
-            nc = 2
-            size = (30, 100, 100)
+            nc = BLOB_CHANNELS
+            size = VOLUME_SIZE_ZYX
 
             if self.structuredDataCheck.isChecked():
                 cr = []
@@ -490,13 +457,13 @@ class LightsheetViewer(QMainWindow):
                     cr.append(((0, size[2]), (0, size[1]), (0, size[0])))
                 self.data = self.data_generator.generate_structured_multi_channel_time_series(
                     num_volumes=nv, num_channels=nc, size=size, num_blobs=nb,
-                    intensity_range=(0.8, 1.0), sigma_range=(2, 6),
+                    intensity_range=BLOB_INTENSITY_RANGE, sigma_range=BLOB_SIGMA_RANGE,
                     noise_level=nl, movement_speed=ms, channel_ranges=cr,
                 )
             else:
                 self.data = self.data_generator.generate_multi_channel_time_series(
                     num_volumes=nv, num_channels=nc, size=size, num_blobs=nb,
-                    intensity_range=(0.8, 1.0), sigma_range=(2, 6),
+                    intensity_range=BLOB_INTENSITY_RANGE, sigma_range=BLOB_SIGMA_RANGE,
                     noise_level=nl, movement_speed=ms,
                 )
 
