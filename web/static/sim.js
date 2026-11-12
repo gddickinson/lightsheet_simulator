@@ -2,7 +2,7 @@
 // plane and time sliders, max projection, PNG / TIFF export. Positions are voxel indices with their centres at
 // (i + 0.5) x voxel size micrometres from the volume edge.
 import { route, api, app, esc, animate, onLeave, download } from './core.js';
-import { buildControls, nucleusRadii } from './sim_controls.js';
+import { buildControls } from './sim_controls.js';
 import { runSample } from './sample_runner.js';
 import { COLORS, VIEWS, composite, draw, range } from './render.js';
 import { writeTiff } from './tiff.js';
@@ -109,14 +109,13 @@ route('sim', async (_a, query) => {
   }
 
   function readout(s, um) {
-    const p = s.params, nr = nucleusRadii(p);
+    const p = s.params;
     const rows = [
       ['Volume (z, y, x)', `${s.size.join(' × ')} voxels`], ['Voxel size', `${s.voxel_um.join(' × ')} µm`],
       ['Extent', `${um.map(v => v.toFixed(1)).join(' × ')} µm`], ['Time points', s.T], ['Seed', p.seed],
       ['Blur σ (z, y, x)', `${p.blur_z_um}, ${p.blur_xy_um}, ${p.blur_xy_um} µm`], ['Noise σ', p.noise],
       ['Built in', `${Math.round(s.ms)} ms`],
     ];
-    if (p.mode === 'cell' && /Nucleus|ER/.test(p.cellular_structure)) rows.push(['Nucleus radius', `asked ${p.nucleus_radius} → ${nr.asked} → used ${nr.used} µm`]);
     const stats = s.names.map((n, c) => { const [lo, hi] = S.ranges[c]; return `<div><span>${esc(n)}</span><b>${lo.toFixed(3)}–${hi.toFixed(3)}</b></div>`; }).join('');
     document.getElementById('readout').innerHTML = rows.map(([a, b]) => `<div><span>${a}</span><b>${esc(b)}</b></div>`).join('') +
       (stats ? `<h3>Intensity range</h3>${stats}` : '');

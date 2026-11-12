@@ -160,18 +160,18 @@ class BiologicalSimulator:
         Args:
             cell_interior: Boolean volume of the cell interior.
             soma_center: (z, y, x) center of the soma.
-            nucleus_radius: Desired nucleus radius in pixels.
-            pixel_size: Anisotropic pixel sizes (z, y, x).
+            nucleus_radius: Nucleus radius in micrometres (distances are voxel offsets x pixel_size).
+            pixel_size: Voxel size in micrometres (z, y, x).
 
         Returns:
             Tuple of (nucleus_volume, nucleus_center).
         """
         try:
             self.logger.info(f"Generating cell nucleus at {soma_center} with radius {nucleus_radius}")
-            soma_radius = min(self.size) // 4
-            nucleus_radius = min(max(1, nucleus_radius), soma_radius // 3)
+            # No fixed cap: the nucleus is clipped to the cell interior, which is its physical limit.
+            nucleus_radius = max(1, nucleus_radius)
 
-            new_center = self.find_suitable_center(cell_interior, soma_center, nucleus_radius)
+            new_center = self.find_suitable_center(cell_interior, soma_center, nucleus_radius, pixel_size)
             if new_center is None:
                 self.logger.warning("Unable to find suitable location for nucleus.")
                 return np.zeros_like(cell_interior), soma_center
@@ -189,8 +189,12 @@ class BiologicalSimulator:
             self.logger.error(f"Error in cell nucleus generation: {str(e)}")
             raise
 
-    def find_suitable_center(self, cell_shape, soma_center, nucleus_radius):
-        """Find a center point inside *cell_shape* that can fit a sphere of *nucleus_radius*."""
+    def find_suitable_center(self, cell_shape, soma_center, nucleus_radius, pixel_size=(1, 1, 1)):
+        """Find a center point inside *cell_shape* that can fit a sphere of *nucleus_radius*.
+
+        The search grows outwards from *soma_center* in voxel steps; a candidate qualifies when at least 7 cell
+        voxels lie within *nucleus_radius* (micrometres, using *pixel_size* (z, y, x)) of it.
+        """
         z, y, x = np.ogrid[: self.size[0], : self.size[1], : self.size[2]]
         dist_from_center = np.sqrt(
             (z - soma_center[0]) ** 2
@@ -211,9 +215,9 @@ class BiologicalSimulator:
                 for center in sorted_centers:
                     z2, y2, x2 = np.ogrid[: self.size[0], : self.size[1], : self.size[2]]
                     d = np.sqrt(
-                        (z2 - center[0]) ** 2
-                        + (y2 - center[1]) ** 2
-                        + (x2 - center[2]) ** 2
+                        ((z2 - center[0]) * pixel_size[0]) ** 2
+                        + ((y2 - center[1]) * pixel_size[1]) ** 2
+                        + ((x2 - center[2]) * pixel_size[2]) ** 2
                     )
                     if np.sum((d <= nucleus_radius) & (cell_shape > 0)) >= 7:
                         return center

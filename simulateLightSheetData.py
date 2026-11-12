@@ -31,6 +31,7 @@ from scipy.spatial.transform import Rotation
 
 
 from utils import line_3d  # 3D Bresenham line (shared with the modular package)
+from simulator import BiologicalSimulator as _ModularSimulator  # shared method implementations
 
 
 class BiologicalSimulator:
@@ -160,76 +161,9 @@ class BiologicalSimulator:
             raise
 
 
-    def generate_nucleus(self, cell_interior, soma_center, nucleus_radius, pixel_size=(1,1,1)):
-        try:
-            self.logger.info(f"Generating cell nucleus at {soma_center} with radius {nucleus_radius}")
-
-            # Ensure nucleus_radius is at least 1 pixel and not larger than 1/3 of the soma
-            soma_radius = min(self.size) // 4
-            nucleus_radius = min(max(1, nucleus_radius), soma_radius // 3)
-
-            # Find a suitable center for the nucleus
-            new_center = self.find_suitable_center(cell_interior, soma_center, nucleus_radius)
-
-            if new_center is None:
-                self.logger.warning("Unable to find suitable location for nucleus.")
-                return np.zeros_like(cell_interior), soma_center
-
-            # Create a spherical nucleus
-            z, y, x = np.ogrid[:self.size[0], :self.size[1], :self.size[2]]
-            dist_from_center = np.sqrt(
-                ((z - new_center[0]) * pixel_size[0])**2 +
-                ((y - new_center[1]) * pixel_size[1])**2 +
-                ((x - new_center[2]) * pixel_size[2])**2
-            )
-
-            # Create nucleus only within the cell interior
-            nucleus = (dist_from_center <= nucleus_radius) & (cell_interior > 0)
-
-            actual_volume = np.sum(nucleus)
-            self.logger.info(f"Cell nucleus generated successfully. Nucleus volume: {actual_volume}")
-            return nucleus.astype(float), new_center
-
-        except Exception as e:
-            self.logger.error(f"Error in cell nucleus generation: {str(e)}")
-            raise
-
-    def find_suitable_center(self, cell_shape, soma_center, nucleus_radius):
-        z, y, x = np.ogrid[:self.size[0], :self.size[1], :self.size[2]]
-        dist_from_center = np.sqrt(
-            (z - soma_center[0])**2 + (y - soma_center[1])**2 + (x - soma_center[2])**2
-        )
-
-        # Create a priority map that favors locations closer to the desired center
-        priority_map = np.where(cell_shape, -dist_from_center, -np.inf)
-
-        search_radius = 0
-        max_search_radius = max(self.size)
-        while search_radius < max_search_radius:
-            potential_centers = np.argwhere(
-                (dist_from_center <= search_radius) & (cell_shape > 0)
-            )
-            if len(potential_centers) > 0:
-                # Sort potential centers by priority
-                priorities = priority_map[tuple(potential_centers.T)]
-                sorted_centers = potential_centers[np.argsort(priorities)]
-
-                for center in sorted_centers:
-                    # Check if the chosen center can accommodate the nucleus
-                    z, y, x = np.ogrid[:self.size[0], :self.size[1], :self.size[2]]
-                    dist_from_center = np.sqrt(
-                        (z - center[0])**2 + (y - center[1])**2 + (x - center[2])**2
-                    )
-                    if np.sum((dist_from_center <= nucleus_radius) & (cell_shape > 0)) >= 7:
-                        return center
-
-            search_radius += 1
-
-        # If no suitable center is found, return the center of mass of the cell shape
-        if np.sum(cell_shape) > 0:
-            return np.array(center_of_mass(cell_shape)).astype(int)
-        else:
-            return None
+    # Shared with simulator.py, so the desktop app and the modular package build the same nucleus
+    generate_nucleus = _ModularSimulator.generate_nucleus
+    find_suitable_center = _ModularSimulator.find_suitable_center
 
     def generate_er(self, cell_shape, soma_center, nucleus_radius, er_density=0.1, pixel_size=(1,1,1)):
         try:
@@ -547,7 +481,7 @@ class BiologicalSimulationWidget(QWidget):
         self.nucleus_options = QWidget()
         nucleus_layout = QFormLayout(self.nucleus_options)
         self.nucleus_radius = QSpinBox()
-        self.nucleus_radius.setRange(1, 10)
+        self.nucleus_radius.setRange(1, 30)
         self.nucleus_radius.setValue(3)
         nucleus_layout.addRow("Nucleus Radius:", self.nucleus_radius)
         self.nucleus_thickness = QSpinBox()
@@ -1552,7 +1486,7 @@ class LightsheetViewer(QMainWindow):
                 )
 
 
-                nucleus_radius = max(5, min(params['nucleus_radius'], params['soma_radius'] // 2))
+                nucleus_radius = params['nucleus_radius']  # um; the nucleus is clipped to the cell interior
 
                 if 'Cell Membrane' in params['cellular_structure']:
                     membrane_timeseries = np.repeat(cell_membrane[np.newaxis, np.newaxis, :, :, :], self.biological_simulator.num_time_points, axis=0)

@@ -11,8 +11,9 @@ import numpy as np
 
 
 def nucleus_radius_used(params):
-    """Nucleus radius passed to generate_nucleus / generate_er (desktop rule, before the simulator's own clamp)."""
-    return max(5, min(params["nucleus_radius"], params["soma_radius"] // 2))
+    """Nucleus radius (um) passed to generate_nucleus / generate_er: the form value (the nucleus is clipped to the
+    cell interior, so a radius larger than the cell fills it)."""
+    return params["nucleus_radius"]
 
 
 def simulate_structures(simulator, params):

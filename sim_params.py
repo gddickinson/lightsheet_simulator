@@ -29,7 +29,7 @@ STRUCTURE_SPECS = {
     "pixel_size": (0.1, 10, 0.1, 1, "um", "Pixel size"),
     "cell_radius": (5, 50, 1, 20, "um", "Cell radius"),
     "membrane_thickness": (1, 5, 1, 1, "um", "Membrane thickness"),
-    "nucleus_radius": (1, 10, 1, 3, "um", "Nucleus radius"),
+    "nucleus_radius": (1, 30, 1, 3, "um", "Nucleus radius"),
     "nucleus_thickness": (1, 3, 1, 1, "unused", "Nucleus thickness (shown in the form; not used by simulator.py)"),
     "er_density": (0.05, 0.2, 0.01, 0.1, "fraction", "ER density"),
     "soma_radius": (1, 20, 1, 5, "um", "Soma radius"),

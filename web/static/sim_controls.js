@@ -65,10 +65,3 @@ export function buildControls(host, P, initial, onChange) {
   sync();
   return p;
 }
-
-// Effective nucleus radius: the desktop rule max(5, min(r, soma_radius // 2)), then the simulator's clamp to
-// (min(size) // 4) // 3 inside generate_nucleus.
-export function nucleusRadii(p) {
-  const asked = Math.max(5, Math.min(p.nucleus_radius, Math.floor(p.soma_radius / 2)));
-  return { asked, used: Math.min(Math.max(1, asked), Math.floor(Math.floor(Math.min(...p.size) / 4) / 3)) };
-}

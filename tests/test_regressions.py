@@ -117,3 +117,55 @@ class TestCellShapesFillTheVolume:
                   "nucleus_radius": 3, "er_density": 0.1}
         np.random.seed(0)
         assert stack_channels(simulate_structures(BiologicalSimulator((12, 30, 30), 1), params), 2).shape == (2, 3, 12, 30, 30)
+
+
+def _monolith():
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    try:
+        import simulateLightSheetData
+        return simulateLightSheetData
+    except ImportError:
+        return None
+
+
+def _struct_params(**kw):
+    p = {"cellular_structure": "Cell Membrane + Nucleus", "cell_type": "spherical", "pixel_size": (1, 1, 1),
+         "membrane_thickness": 1, "cell_radius": 20, "soma_radius": 5, "axon_length": 50, "axon_width": 2,
+         "num_dendrites": 5, "dendrite_length": 25, "nucleus_radius": 3, "er_density": 0.1}
+    p.update(kw)
+    return p
+
+
+class TestNucleusRadiusTakesEffect:
+    """The nucleus radius was forced to max(5, min(r, soma_radius // 2)) by the viewer and then capped at
+    (min(volume) // 4) // 3 = 2 by generate_nucleus, so the form value had almost no effect."""
+
+    @pytest.mark.parametrize("r", [3, 6, 9])
+    def test_radius_used(self, r):
+        from simulator import BiologicalSimulator
+        from structure_pipeline import nucleus_radius_used, simulate_structures
+        assert nucleus_radius_used(_struct_params(nucleus_radius=r)) == r
+        sims = [BiologicalSimulator] + ([_monolith().BiologicalSimulator] if _monolith() else [])
+        for cls in sims:
+            np.random.seed(0)
+            ch = dict(simulate_structures(cls((30, 100, 100), 1), _struct_params(nucleus_radius=r)))
+            vol = ch["nucleus"].sum()
+            assert abs(vol - 4 / 3 * np.pi * r ** 3) < 0.35 * 4 / 3 * np.pi * r ** 3, (cls.__module__, r, vol)
+
+    def test_limited_by_the_cell(self):
+        from simulator import BiologicalSimulator
+        size = (30, 100, 100)
+        _, interior, _ = BiologicalSimulator(size, 1).generate_cell_shape("spherical", size, cell_radius=6)
+        nuc, _ = BiologicalSimulator(size, 1).generate_nucleus(interior, (15, 50, 50), 30)
+        assert nuc.sum() == interior.sum()  # a nucleus bigger than the cell fills the interior, never more
+
+    def test_anisotropic_voxels_in_um(self):
+        from simulator import BiologicalSimulator
+        size = (30, 60, 60)
+        sim = BiologicalSimulator(size, 1)
+        px = (2.0, 0.5, 0.5)
+        _, interior, _ = sim.generate_cell_shape("spherical", size, px, cell_radius=14)
+        nuc, c = sim.generate_nucleus(interior, (15, 30, 30), 5, pixel_size=px)
+        zz, yy, xx = np.nonzero(nuc)
+        assert (zz.max() - zz.min() + 1) * 2.0 == pytest.approx(10, abs=2.1)   # 5 um radius along z (2 um voxels)
+        assert (xx.max() - xx.min() + 1) * 0.5 == pytest.approx(10, abs=0.6)   # and along x (0.5 um voxels)

@@ -94,14 +94,14 @@ export function generateCellShape(rs, cellType, size, px = [1, 1, 1], membraneTh
   return { shape, interior, membrane };
 }
 
-// Count voxels of cell within (unscaled) distance r of c
-function countInSphere(cell, size, c, r) {
-  const [nz, ny, nx] = size, R = Math.floor(r);
+// Count voxels of cell within distance r (um, offsets scaled by the voxel size px) of c
+function countInSphere(cell, size, c, r, px) {
+  const [nz, ny, nx] = size, R = px.map(v => Math.floor(r / v));
   let k = 0;
-  for (let z = Math.max(0, c[0] - R); z <= Math.min(nz - 1, c[0] + R); z++)
-    for (let y = Math.max(0, c[1] - R); y <= Math.min(ny - 1, c[1] + R); y++)
-      for (let x = Math.max(0, c[2] - R); x <= Math.min(nx - 1, c[2] + R); x++) {
-        const dz = z - c[0], dy = y - c[1], dx = x - c[2];
+  for (let z = Math.max(0, c[0] - R[0]); z <= Math.min(nz - 1, c[0] + R[0]); z++)
+    for (let y = Math.max(0, c[1] - R[1]); y <= Math.min(ny - 1, c[1] + R[1]); y++)
+      for (let x = Math.max(0, c[2] - R[2]); x <= Math.min(nx - 1, c[2] + R[2]); x++) {
+        const dz = (z - c[0]) * px[0], dy = (y - c[1]) * px[1], dx = (x - c[2]) * px[2];
         if (Math.sqrt(dz * dz + dy * dy + dx * dx) <= r && cell[(z * ny + y) * nx + x]) k++;
       }
   return k;
@@ -109,8 +109,8 @@ function countInSphere(cell, size, c, r) {
 
 // find_suitable_center: grow a search radius r = 0, 1, ... around the soma; at each r try the in-cell voxels within r,
 // farthest first (numpy argsort of -distance; ties here in C order), and return the first that has >= 7 cell voxels
-// within the nucleus radius. Falls back to the truncated centre of mass, or null for an empty cell.
-export function findSuitableCenter(cell, size, soma, nr) {
+// within the nucleus radius (um, with voxel size px). Falls back to the truncated centre of mass, or null for an empty cell.
+export function findSuitableCenter(cell, size, soma, nr, px = [1, 1, 1]) {
   const [nz, ny, nx] = size, cand = [];
   eachDist(size, soma, [1, 1, 1], (i, z, y, x, d) => { if (cell[i]) cand.push([d, z, y, x, i]); });
   cand.sort((a, b) => a[0] - b[0] || a[4] - b[4]);
@@ -119,7 +119,7 @@ export function findSuitableCenter(cell, size, soma, nr) {
     let hi = lo;
     while (hi < cand.length && cand[hi][0] <= r) hi++;
     const fresh = cand.slice(lo, hi).sort((a, b) => b[0] - a[0] || a[4] - b[4]);
-    for (const [, z, y, x] of fresh) if (countInSphere(cell, size, [z, y, x], nr) >= 7) return [z, y, x];
+    for (const [, z, y, x] of fresh) if (countInSphere(cell, size, [z, y, x], nr, px) >= 7) return [z, y, x];
     lo = hi;
   }
   if (!cand.length) return null;
@@ -130,9 +130,8 @@ export function findSuitableCenter(cell, size, soma, nr) {
 
 // generate_nucleus -> { nucleus (Uint8Array), center }
 export function generateNucleus(interior, size, soma, nucleusRadius, px = [1, 1, 1]) {
-  const somaR = fdiv(Math.min(...size), 4);
-  const nr = Math.min(Math.max(1, nucleusRadius), fdiv(somaR, 3));
-  const center = findSuitableCenter(interior, size, soma, nr);
+  const nr = Math.max(1, nucleusRadius);  // no fixed cap: the nucleus is clipped to the cell interior
+  const center = findSuitableCenter(interior, size, soma, nr, px);
   const nucleus = new Uint8Array(interior.length);
   if (!center) return { nucleus, center: soma, radius: nr };
   eachDist(size, center, px, (i, z, y, x, d) => { nucleus[i] = d <= nr && interior[i] ? 1 : 0; });
@@ -153,7 +152,7 @@ export function generateEr(rs, shape, size, soma, nr, density = 0.1, px = [1, 1,
 }
 
 // structure_pipeline.nucleus_radius_used
-export const nucleusRadiusUsed = p => Math.max(5, Math.min(p.nucleus_radius, fdiv(p.soma_radius, 2)));
+export const nucleusRadiusUsed = p => p.nucleus_radius;
 
 // structure_pipeline.simulate_structures -> [{ name, mask }]
 export function simulateStructures(rs, p) {

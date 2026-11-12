@@ -55,9 +55,6 @@ route('about', async () => {
   <p>Calcium signals and active transport (listed in the desktop form but not implemented in the Python code), the
   angular-recording rotation (<code>DataGenerator.simulate_angular_recording</code>, not wired into the GUI), blob
   detection and colocalization analysis (scikit-image / SciPy, desktop only) and the OpenGL 3D view.</p>
-  <p class="small mute">Note on the nucleus: the desktop asks for radius max(5, min(r, soma radius ÷ 2)) and
-  <code>generate_nucleus</code> then caps it at (min(volume size) ÷ 4) ÷ 3 — 2 at the default 30 × 100 × 100 volume — so
-  the nucleus radius control has little effect; the ER uses the uncapped radius. The simulator readout shows both.</p>
   <h2>Run it yourself</h2>
   <div class="two"><div><h3>Desktop app</h3>
   <pre>pip install -r requirements.txt
