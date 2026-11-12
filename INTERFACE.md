@@ -16,7 +16,7 @@
 | `gui/roi.py` | `ROI3D` OpenGL mesh item |
 | `gui/viewer.py` | `LightsheetViewer` main application window (docks, 2D/3D views, blob detection, playback) |
 | `tests/test_simulator.py` | Smoke tests for `BiologicalSimulator`, `DataGenerator`, `VolumeProcessor`, `line_3d` |
-| `tests/test_regressions.py` | Regression tests for fixed bugs (line_3d, dendrite bounds, pixel-size order, cell-shape broadcasting) |
+| `tests/test_regressions.py` | Regression tests for fixed bugs (line_3d, dendrite bounds, pixel-size order and label, cell-shape broadcasting, nucleus radius, angular-recording axes, neuron lengths in µm) |
 | `tests/test_web.py` | Web API, static build, fixture currency, TIFF export round trip, node engine tests |
 | `tests/fixtures/engine_fixture.json` | Python reference values for the JS engine (from `scripts/make_engine_fixture.py`) |
 | `web/app.py` | FastAPI app: `/api/info`, `/api/params`, `/api/check` (GET + POST), `STATIC_ENDPOINTS` |
@@ -51,5 +51,6 @@ web/app.py -> web/pipeline.py -> structure_pipeline.py, data_generator.py, simul
 web/static/pipeline.js -> np_random.js, ndimage.js, cells_engine.js, dynamics_engine.js  (mirror of web/pipeline.py)
 ```
 
-Note: `simulateLightSheetData.py` keeps its own copies of the classes (it imports only `line_3d` from `utils.py`);
-bug fixes are applied to both copies.
+Note: `simulateLightSheetData.py` keeps its own copies of the classes, but shares `line_3d` (utils.py),
+`generate_cell_shape` / `generate_nucleus` / `find_suitable_center` (simulator.py) and the angular-recording methods
+(data_generator.py) with the modules; other fixes are applied to both copies.

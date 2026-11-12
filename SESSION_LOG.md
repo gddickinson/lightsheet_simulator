@@ -21,13 +21,22 @@ acquisition step (Gaussian blur in µm, additive Gaussian noise). Seeded volumes
 PNG of the XY view, ImageJ float32 TIFF with voxel size (verified with tifffile). Worker thread; default volume builds
 in 0.1-0.6 s.
 
-**Needs George's decision** (not changed):
-- Nucleus radius: the viewer asks max(5, min(r, soma//2)), then `generate_nucleus` caps it at (min(size)//4)//3 = 2 at
-  the default volume, so the form's nucleus radius barely matters, and `generate_er` excludes the uncapped radius.
-- `simulate_angular_recording` rotates axes (1, 2); for the GUI's 5D (t, c, z, y, x) data that mixes channels with z.
-  Which spatial axes the rotation should use is unclear (the 4D generators use mixed axis orders).
-- `find_suitable_center` sorts candidates farthest-first (argsort of -distance), probably meant nearest-first;
-  effect is small (candidates are within one voxel of the same radius).
-- Units: the form's "Pixel Size" has no unit (web treats it as µm); radii are in physical units, axon/dendrite
-  lengths in voxels, neuron membrane thickness in dilation steps.
-- `gui/viewer.py` (964 lines) and `simulateLightSheetData.py` (~2900) exceed the 500-line rule (pre-existing).
+**Needs George's decision**: answered by George (2026-11-11, "fix ... any other problems"); see the next entry.
+
+## 2026-11-11 (later) — follow-up fixes requested by George (branch `web-interface`)
+
+Each in `simulator.py` / `data_generator.py`, the original monolith (which now shares these methods with the modules
+instead of keeping its own copies) and the JS engine, with regression tests and a "Fix ..." commit:
+1. Nucleus radius: the viewer's max(5, min(r, soma//2)) rule and generate_nucleus's (min(size)//4)//3 cap are gone;
+   the form value (µm, range now 1-30) is used and the nucleus is clipped to the cell interior. find_suitable_center
+   measures the fit in µm. (The monolith's own find_suitable_center also overwrote its search-distance map.)
+2. simulate_angular_recording / correct_angular_recording rotate only spatial axes (first two of the last three);
+   4-D data unchanged, 5-D channels no longer mixed with z. Not ported to JS (not part of the web simulator).
+3. Neuron axon length/width and dendrite length are µm, converted with the voxel size; the form row reads
+   "Pixel size (µm; z, y, x)" with boxes in that order, and radius/length fields show µm.
+Fixture regenerated (new anisotropic neuron case): node test 2151 checks, pytest 75 passed, browser cross-check 17/17,
+static and server smoke tests ok; both desktop apps run Simulate offscreen for every cell type.
+
+Still open (not asked): membrane thickness is µm for spherical/muscle but dilation steps for neurons and voxels for
+epithelial cells; find_suitable_center tries the farthest candidates first; gui/viewer.py (964 lines) and
+simulateLightSheetData.py (~2650) exceed the 500-line rule.
