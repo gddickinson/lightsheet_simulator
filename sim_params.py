@@ -5,16 +5,19 @@ Single source of the ranges, steps and defaults shown by the desktop form
 (gui/simulation_widgets.py) and the web interface (web/app.py). Each spec is
 (min, max, step, default). Units follow how simulator.py uses each value:
 
-- "um": compared with distances computed as voxel offset x pixel size, so
-  physical units (the desktop form's "Pixel Size" boxes have no unit; the web
-  interface treats pixel size as micrometres per voxel).
+- "um": micrometres; compared with distances computed as voxel offset x pixel
+  size (membrane thickness is an exception for neurons, where it counts
+  dilation steps, and epithelial cells, where it counts voxels along z).
 - "voxels": used directly as voxel counts / indices.
+
+Pixel (voxel) size is in micrometres, entered and passed in (z, y, x) order.
 
 Also lists the volume size, cell types and structure choices of the desktop app.
 """
 
 # Volume used by LightsheetViewer's BiologicalSimulator: (z, y, x) voxels.
 VOLUME_SIZE_ZYX = (30, 100, 100)
+PIXEL_SIZE_LABEL = "Pixel size (µm; z, y, x):"
 NUM_TIME_POINTS = 10
 
 CELL_TYPES = ["spherical", "neuron", "epithelial", "muscle"]
@@ -33,10 +36,10 @@ STRUCTURE_SPECS = {
     "nucleus_thickness": (1, 3, 1, 1, "unused", "Nucleus thickness (shown in the form; not used by simulator.py)"),
     "er_density": (0.05, 0.2, 0.01, 0.1, "fraction", "ER density"),
     "soma_radius": (1, 20, 1, 5, "um", "Soma radius"),
-    "axon_length": (10, 100, 1, 50, "voxels", "Axon length"),
-    "axon_width": (1, 10, 1, 2, "voxels", "Axon width"),
+    "axon_length": (10, 100, 1, 50, "um", "Axon length"),
+    "axon_width": (1, 10, 1, 2, "um", "Axon width"),
     "num_dendrites": (1, 10, 1, 5, "count", "Number of dendrites"),
-    "dendrite_length": (5, 50, 1, 25, "voxels", "Dendrite length"),
+    "dendrite_length": (5, 50, 1, 25, "um", "Dendrite length"),
 }
 
 DYNAMICS_SPECS = {

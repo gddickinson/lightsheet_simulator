@@ -271,10 +271,12 @@ class BiologicalSimulator:
         Args:
             cell_type: One of 'spherical', 'neuron', 'epithelial', 'muscle'.
             size: Volume dimensions (z, y, x).
-            pixel_size: Anisotropic pixel sizes.
-            membrane_thickness: Thickness of the membrane in pixels.
-            soma_center: Optional center override.
-            **kwargs: Cell-type-specific parameters.
+            pixel_size: Voxel size in micrometres (z, y, x).
+            membrane_thickness: Membrane thickness: micrometres for spherical and muscle cells, dilation
+                steps (voxels) for neurons, voxels along z for epithelial cells.
+            soma_center: Optional center override (voxel indices).
+            **kwargs: Cell-type-specific parameters, lengths in micrometres: cell_radius, soma_radius,
+                axon_length, axon_width, dendrite_length (num_dendrites is a count).
 
         Returns:
             Tuple of (cell_shape, cell_interior, cell_membrane) float arrays.
@@ -298,37 +300,38 @@ class BiologicalSimulator:
                 cell_shape = cell_interior | cell_membrane
 
             elif cell_type == "neuron":
+                # Lengths are micrometres (defaults: the old voxel-based values times the voxel size)
                 soma_radius = kwargs.get("soma_radius", min(size) // 8)
-                axon_length = kwargs.get("axon_length", size[2] // 2)
-                axon_width = kwargs.get("axon_width", size[1] // 20)
+                axon_length = kwargs.get("axon_length", size[2] // 2 * pixel_size[2])
+                axon_width = kwargs.get("axon_width", size[1] // 20 * pixel_size[1])
                 num_dendrites = kwargs.get("num_dendrites", 5)
-                dendrite_length = kwargs.get("dendrite_length", size[1] // 4)
+                dendrite_length = kwargs.get("dendrite_length", size[1] // 4 * pixel_size[1])
                 self.logger.info(f"Generating neuron with soma radius {soma_radius}")
 
-                dist_from_soma = np.sqrt(
-                    ((z - soma_center[0]) * pixel_size[0]) ** 2
-                    + ((y - soma_center[1]) * pixel_size[1]) ** 2
-                    + ((x - soma_center[2]) * pixel_size[2]) ** 2
-                )
+                dz_um = (z - soma_center[0]) * pixel_size[0]
+                dy_um = (y - soma_center[1]) * pixel_size[1]
+                dx_um = (x - soma_center[2]) * pixel_size[2]
+                dist_from_soma = np.sqrt(dz_um ** 2 + dy_um ** 2 + dx_um ** 2)
                 soma = dist_from_soma <= soma_radius
 
-                axon_start = soma_center[2] + soma_radius
+                # axon along +x from the soma surface, axon_width um square cross-section
                 axon = (
-                    (x >= axon_start)
-                    & (x < axon_start + axon_length)
-                    & (np.abs(y - soma_center[1]) <= axon_width // 2)
-                    & (np.abs(z - soma_center[0]) <= axon_width // 2)
+                    (dx_um >= soma_radius)
+                    & (dx_um < soma_radius + axon_length)
+                    & (np.abs(dy_um) <= axon_width / 2)
+                    & (np.abs(dz_um) <= axon_width / 2)
                 )
 
-                axon_end = axon_start + axon_length
+                axon_end = soma_center[2] + (soma_radius + axon_length) / pixel_size[2]  # x, voxels
+                jitter = max(1, int(round(axon_width)))  # terminal offsets in whole micrometres
                 terminals = np.zeros_like(soma, dtype=bool)
                 for _ in range(3):
                     tc = (
-                        soma_center[0] + np.random.randint(-axon_width, axon_width),
-                        soma_center[1] + np.random.randint(-axon_width, axon_width),
-                        axon_end + np.random.randint(0, size[2] // 10),
+                        soma_center[0] + np.random.randint(-jitter, jitter) / pixel_size[0],
+                        soma_center[1] + np.random.randint(-jitter, jitter) / pixel_size[1],
+                        axon_end + np.random.randint(0, size[2] // 10),  # voxels past the axon end
                     )
-                    tr = axon_width // 2
+                    tr = axon_width / 2
                     td = np.sqrt(
                         ((z - tc[0]) * pixel_size[0]) ** 2
                         + ((y - tc[1]) * pixel_size[1]) ** 2
@@ -340,9 +343,9 @@ class BiologicalSimulator:
                 for _ in range(num_dendrites):
                     angle = np.random.uniform(0, 2 * np.pi)
                     end_pt = (
-                        int(soma_center[0] + dendrite_length * np.sin(angle) * np.cos(angle)),
-                        int(soma_center[1] + dendrite_length * np.sin(angle)),
-                        int(soma_center[2] - dendrite_length * np.cos(angle)),
+                        int(soma_center[0] + dendrite_length * np.sin(angle) * np.cos(angle) / pixel_size[0]),
+                        int(soma_center[1] + dendrite_length * np.sin(angle) / pixel_size[1]),
+                        int(soma_center[2] - dendrite_length * np.cos(angle) / pixel_size[2]),
                     )
                     rr, cc, zz = line_3d(
                         soma_center[0], soma_center[1], soma_center[2],

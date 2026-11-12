@@ -36,10 +36,10 @@ route('about', async () => {
   <h2>Units and conventions</h2>
   <ul>
     <li>Axes are (z, y, x); z is the detection axis, the direction the light sheet is stepped.</li>
-    <li>Voxel size is in µm per voxel. The desktop form's "Pixel Size" boxes carry no unit; here they are read as
-      micrometres. Default 1 µm, as in the desktop form.</li>
-    <li>Radii are compared with distances computed as voxel offset × voxel size, so they are in µm. Axon and dendrite
-      lengths and widths are voxel counts, as in <code>simulator.py</code>.</li>
+    <li>Voxel size is in µm per voxel, in (z, y, x) order, as labelled in the desktop form. Default 1 µm.</li>
+    <li>Radii, axon length and width, and dendrite length are in µm: distances are voxel offset × voxel size.
+      Membrane thickness is in µm for spherical and muscle cells, but counts dilation steps (voxels) for neurons and
+      voxels along z for epithelial cells.</li>
     <li>Plane i covers i·d to (i + 1)·d µm from the volume edge; positions shown are voxel centres, (i + 0.5)·d µm.</li>
     <li>Intensities are arbitrary units in 0–1. Diffusion coefficient D is in voxel² per time step.</li>
   </ul>

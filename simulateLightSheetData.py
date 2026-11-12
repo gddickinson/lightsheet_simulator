@@ -201,130 +201,8 @@ class BiologicalSimulator:
             self.logger.error(f"Error in ER generation: {str(e)}")
             raise
 
-    def generate_cell_shape(self, cell_type, size, pixel_size=(1,1,1), membrane_thickness=1, soma_center=None, **kwargs):
-        try:
-            self.logger.info(f"Generating {cell_type} cell shape")
-
-            z, y, x = np.ogrid[:size[0], :size[1], :size[2]]
-            if soma_center is None:
-                soma_center = np.array(size) // 2
-
-            if cell_type == 'spherical':
-                radius = kwargs.get('cell_radius', min(size) // 4)
-                self.logger.info(f"Generating spherical cell with radius {radius}")
-                dist_from_center = np.sqrt(
-                    ((z - soma_center[0]) * pixel_size[0])**2 +
-                    ((y - soma_center[1]) * pixel_size[1])**2 +
-                    ((x - soma_center[2]) * pixel_size[2])**2
-                )
-                cell_interior = dist_from_center <= (radius - membrane_thickness)
-                cell_membrane = (dist_from_center <= radius) & (dist_from_center > (radius - membrane_thickness))
-                cell_shape = cell_interior | cell_membrane
-
-            elif cell_type == 'neuron':
-                soma_radius = kwargs.get('soma_radius', min(size) // 8)
-                axon_length = kwargs.get('axon_length', size[2] // 2)
-                axon_width = kwargs.get('axon_width', size[1] // 20)
-                num_dendrites = kwargs.get('num_dendrites', 5)
-                dendrite_length = kwargs.get('dendrite_length', size[1] // 4)
-
-                self.logger.info(f"Generating neuron with soma radius {soma_radius}")
-
-                # Create soma (cell body)
-                dist_from_soma_center = np.sqrt(
-                    ((z - soma_center[0]) * pixel_size[0])**2 +
-                    ((y - soma_center[1]) * pixel_size[1])**2 +
-                    ((x - soma_center[2]) * pixel_size[2])**2
-                )
-                soma = dist_from_soma_center <= soma_radius
-
-                # Create axon
-                axon_start = soma_center[2] + soma_radius
-                axon = (x >= axon_start) & (x < axon_start + axon_length) & \
-                       (np.abs(y - soma_center[1]) <= axon_width // 2) & \
-                       (np.abs(z - soma_center[0]) <= axon_width // 2)
-
-                # Create axon terminals
-                axon_end = axon_start + axon_length
-                terminals = np.zeros_like(soma, dtype=bool)
-                for _ in range(3):  # Create 3 terminals
-                    terminal_center = (
-                        soma_center[0] + np.random.randint(-axon_width, axon_width),
-                        soma_center[1] + np.random.randint(-axon_width, axon_width),
-                        axon_end + np.random.randint(0, size[2]//10)
-                    )
-                    terminal_radius = axon_width // 2
-                    dist_from_terminal = np.sqrt(
-                        ((z - terminal_center[0]) * pixel_size[0])**2 +
-                        ((y - terminal_center[1]) * pixel_size[1])**2 +
-                        ((x - terminal_center[2]) * pixel_size[2])**2
-                    )
-                    terminals |= dist_from_terminal <= terminal_radius
-
-                # Create dendrites
-                dendrites = np.zeros_like(soma, dtype=bool)
-                for _ in range(num_dendrites):
-                    angle = np.random.uniform(0, 2*np.pi)
-                    end_point = (
-                        int(soma_center[0] + dendrite_length * np.sin(angle) * np.cos(angle)),
-                        int(soma_center[1] + dendrite_length * np.sin(angle)),
-                        int(soma_center[2] - dendrite_length * np.cos(angle))
-                    )
-                    rr, cc, zz = line_3d(soma_center[0], soma_center[1], soma_center[2],
-                                         end_point[0], end_point[1], end_point[2])
-                    # keep only the part of the line inside the volume (negative indices would wrap round)
-                    inside = ((rr >= 0) & (rr < size[0]) & (cc >= 0) & (cc < size[1])
-                              & (zz >= 0) & (zz < size[2]))
-                    dendrites[rr[inside], cc[inside], zz[inside]] = True
-
-                dendrites = binary_dilation(dendrites, iterations=2)
-
-                # Combine all parts to create the cell interior
-                cell_interior = soma | axon | terminals | dendrites
-
-                # Create the membrane by dilating the cell interior
-                cell_shape = binary_dilation(cell_interior, iterations=membrane_thickness)
-                cell_membrane = cell_shape & ~cell_interior
-
-
-            elif cell_type == 'epithelial':
-                height = size[0] // 3
-                outer_shape = z < height
-                inner_shape = z < (height - membrane_thickness)
-                cell_shape = outer_shape ^ inner_shape
-                cell_interior = inner_shape
-                cell_membrane = cell_shape
-
-            elif cell_type == 'muscle':
-                outer_shape = ((y - soma_center[1])*pixel_size[1])**2 + ((z - soma_center[0])*pixel_size[0])**2 <= (min(size)//4)**2
-                inner_shape = ((y - soma_center[1])*pixel_size[1])**2 + ((z - soma_center[0])*pixel_size[0])**2 <= (min(size)//4 - membrane_thickness)**2
-                cell_shape = outer_shape ^ inner_shape
-                cell_interior = inner_shape
-                cell_membrane = cell_shape
-
-            else:
-                raise ValueError(f"Unknown cell type: {cell_type}")
-
-            non_zero_coords = np.argwhere(cell_shape > 0)
-            self.logger.info(f"Non-zero cell shape coordinates: min={non_zero_coords.min(axis=0)}, max={non_zero_coords.max(axis=0)}")
-
-            # Visualize the cell shape
-            #plt.imshow(cell_shape[:, :, cell_shape.shape[2]//2])
-            #plt.title("Cell Shape (Middle Slice)")
-            #plt.colorbar()
-            #plt.savefig("cell_shape.png")
-            #plt.close()
-
-            self.logger.info(f"{cell_type} cell shape generated successfully")
-            # epithelial / muscle masks depend on fewer axes (ogrid shapes (z,1,1) / (z,y,1)): fill the volume
-            cell_shape, cell_interior, cell_membrane = (
-                np.broadcast_to(a, tuple(size)) for a in (cell_shape, cell_interior, cell_membrane))
-            return cell_shape.astype(float), cell_interior.astype(float), cell_membrane.astype(float)
-
-
-        except Exception as e:
-            self.logger.error(f"Error in cell shape generation: {str(e)}")
-            raise
+    # Shared with simulator.py (lengths in micrometres, masks filling the volume)
+    generate_cell_shape = _ModularSimulator.generate_cell_shape
 
     def _generate_nucleus(self) -> np.ndarray:
         # Implement nucleus generation here
@@ -460,10 +338,10 @@ class BiologicalSimulationWidget(QWidget):
             spinbox.setSingleStep(0.1)
             spinbox.setValue(1)
         pixel_size_layout = QHBoxLayout()
-        pixel_size_layout.addWidget(self.pixel_size_x)
-        pixel_size_layout.addWidget(self.pixel_size_y)
         pixel_size_layout.addWidget(self.pixel_size_z)
-        form_layout.addRow("Pixel Size (x, y, z):", pixel_size_layout)
+        pixel_size_layout.addWidget(self.pixel_size_y)
+        pixel_size_layout.addWidget(self.pixel_size_x)
+        form_layout.addRow("Pixel size (µm; z, y, x):", pixel_size_layout)
 
         # Cell Membrane options
         self.membrane_options = QWidget()
@@ -471,7 +349,7 @@ class BiologicalSimulationWidget(QWidget):
         self.cell_radius = QSpinBox()
         self.cell_radius.setRange(5, 50)
         self.cell_radius.setValue(20)
-        membrane_layout.addRow("Cell Radius:", self.cell_radius)
+        membrane_layout.addRow("Cell Radius (µm):", self.cell_radius)
         self.membrane_thickness = QSpinBox()
         self.membrane_thickness.setRange(1, 5)
         self.membrane_thickness.setValue(1)
@@ -484,7 +362,7 @@ class BiologicalSimulationWidget(QWidget):
         self.nucleus_radius = QSpinBox()
         self.nucleus_radius.setRange(1, 30)
         self.nucleus_radius.setValue(3)
-        nucleus_layout.addRow("Nucleus Radius:", self.nucleus_radius)
+        nucleus_layout.addRow("Nucleus Radius (µm):", self.nucleus_radius)
         self.nucleus_thickness = QSpinBox()
         self.nucleus_thickness.setRange(1, 3)
         self.nucleus_thickness.setValue(1)
@@ -509,17 +387,17 @@ class BiologicalSimulationWidget(QWidget):
         self.soma_radius = QSpinBox()
         self.soma_radius.setRange(1, 20)
         self.soma_radius.setValue(5)
-        neuron_layout.addRow("Soma Radius:", self.soma_radius)
+        neuron_layout.addRow("Soma Radius (µm):", self.soma_radius)
 
         self.axon_length = QSpinBox()
         self.axon_length.setRange(10, 100)
         self.axon_length.setValue(50)
-        neuron_layout.addRow("Axon Length:", self.axon_length)
+        neuron_layout.addRow("Axon Length (µm):", self.axon_length)
 
         self.axon_width = QSpinBox()
         self.axon_width.setRange(1, 10)
         self.axon_width.setValue(2)
-        neuron_layout.addRow("Axon Width:", self.axon_width)
+        neuron_layout.addRow("Axon Width (µm):", self.axon_width)
 
         self.num_dendrites = QSpinBox()
         self.num_dendrites.setRange(1, 10)
@@ -529,7 +407,7 @@ class BiologicalSimulationWidget(QWidget):
         self.dendrite_length = QSpinBox()
         self.dendrite_length.setRange(5, 50)
         self.dendrite_length.setValue(25)
-        neuron_layout.addRow("Dendrite Length:", self.dendrite_length)
+        neuron_layout.addRow("Dendrite Length (µm):", self.dendrite_length)
 
         form_layout.addRow(self.neuron_options)
 
@@ -593,7 +471,7 @@ class BiologicalSimulationWidget(QWidget):
             'nucleus_thickness': self.nucleus_thickness.value(),
             'er_density': self.er_density.value(),
             'cell_type': self.cell_type_combo.currentText(),
-            # (z, y, x): the order BiologicalSimulator expects (the form shows x, y, z)
+            # (z, y, x): the order BiologicalSimulator expects and the form shows
             'pixel_size': (self.pixel_size_z.value(), self.pixel_size_y.value(), self.pixel_size_x.value()),
             'soma_radius': self.soma_radius.value(),
             'axon_length': self.axon_length.value(),

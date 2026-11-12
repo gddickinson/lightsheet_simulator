@@ -1,7 +1,7 @@
 // Port of the cell-structure code: utils.line_3d, BiologicalSimulator.generate_cell_shape / generate_nucleus /
 // find_suitable_center / generate_er (simulator.py) and structure_pipeline.simulate_structures. Volumes are (z, y, x),
 // flat in C order. px is the voxel size (z, y, x) in micrometres: like the Python, distances are voxel offsets times
-// px, so radii compared with them are in micrometres while axon/dendrite lengths are voxel counts.
+// px, and radii, axon and dendrite lengths and the axon width are in micrometres.
 // Random draws go through a RandomState (np_random.js) in exactly the Python order, so a seed reproduces the volume.
 import { binaryDilation } from './ndimage.js';
 
@@ -52,22 +52,24 @@ export function generateCellShape(rs, cellType, size, px = [1, 1, 1], membraneTh
     });
     membrane = shape.map((v, i) => v && !interior[i] ? 1 : 0);
   } else if (cellType === 'neuron') {
-    const somaR = kw.soma_radius ?? fdiv(minS, 8), axonLen = kw.axon_length ?? fdiv(nx, 2);
-    const axonW = kw.axon_width ?? fdiv(ny, 20), nDend = kw.num_dendrites ?? 5, dendLen = kw.dendrite_length ?? fdiv(ny, 4);
-    const axonStart = c[2] + somaR, half = fdiv(axonW, 2);
+    // lengths in micrometres (defaults: the old voxel-based values times the voxel size)
+    const somaR = kw.soma_radius ?? fdiv(minS, 8), axonLen = kw.axon_length ?? fdiv(nx, 2) * px[2];
+    const axonW = kw.axon_width ?? fdiv(ny, 20) * px[1], nDend = kw.num_dendrites ?? 5, dendLen = kw.dendrite_length ?? fdiv(ny, 4) * px[1];
     eachDist(size, c, px, (i, z, y, x, d) => {
-      interior[i] = (d <= somaR) || (x >= axonStart && x < axonStart + axonLen && Math.abs(y - c[1]) <= half && Math.abs(z - c[0]) <= half);
+      const dz = (z - c[0]) * px[0], dy = (y - c[1]) * px[1], dx = (x - c[2]) * px[2];
+      interior[i] = (d <= somaR) || (dx >= somaR && dx < somaR + axonLen && Math.abs(dy) <= axonW / 2 && Math.abs(dz) <= axonW / 2);
     });
-    const axonEnd = axonStart + axonLen;
+    const axonEnd = c[2] + (somaR + axonLen) / px[2], jitter = Math.max(1, Math.round(axonW));
     for (let k = 0; k < 3; k++) {
-      const tz = c[0] + rs.randint(-axonW, axonW), ty = c[1] + rs.randint(-axonW, axonW), tx = axonEnd + rs.randint(0, fdiv(nx, 10));
-      const tr = fdiv(axonW, 2);
+      const tz = c[0] + rs.randint(-jitter, jitter) / px[0], ty = c[1] + rs.randint(-jitter, jitter) / px[1];
+      const tx = axonEnd + rs.randint(0, fdiv(nx, 10)), tr = axonW / 2;
       eachDist(size, [tz, ty, tx], px, (i, z, y, x, d) => { if (d <= tr) interior[i] = 1; });
     }
     let dend = new Uint8Array(n);
     for (let k = 0; k < nDend; k++) {
       const a = rs.uniform(0, 2 * Math.PI);
-      const e = [Math.trunc(c[0] + dendLen * Math.sin(a) * Math.cos(a)), Math.trunc(c[1] + dendLen * Math.sin(a)), Math.trunc(c[2] - dendLen * Math.cos(a))];
+      const e = [Math.trunc(c[0] + dendLen * Math.sin(a) * Math.cos(a) / px[0]), Math.trunc(c[1] + dendLen * Math.sin(a) / px[1]),
+        Math.trunc(c[2] - dendLen * Math.cos(a) / px[2])];
       const [R, C, Z] = line3d(c[0], c[1], c[2], e[0], e[1], e[2]);
       for (let j = 0; j < R.length; j++) {
         if (R[j] >= 0 && R[j] < nz && C[j] >= 0 && C[j] < ny && Z[j] >= 0 && Z[j] < nx) dend[(R[j] * ny + C[j]) * nx + Z[j]] = 1;

@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import pyqtSignal
 
-from sim_params import CALCIUM_SIGNALS, CELL_TYPES, DYNAMICS_SPECS, STRUCTURE_SPECS, STRUCTURES
+from sim_params import CALCIUM_SIGNALS, CELL_TYPES, DYNAMICS_SPECS, PIXEL_SIZE_LABEL, STRUCTURE_SPECS, STRUCTURES
 
 
 def _spin(spec, double=False):
@@ -91,16 +91,16 @@ class BiologicalSimulationWidget(QWidget):
         self.pixel_size_y = _spin(STRUCTURE_SPECS["pixel_size"], double=True)
         self.pixel_size_z = _spin(STRUCTURE_SPECS["pixel_size"], double=True)
         px_layout = QHBoxLayout()
-        px_layout.addWidget(self.pixel_size_x)
-        px_layout.addWidget(self.pixel_size_y)
         px_layout.addWidget(self.pixel_size_z)
-        form.addRow("Pixel Size (x, y, z):", px_layout)
+        px_layout.addWidget(self.pixel_size_y)
+        px_layout.addWidget(self.pixel_size_x)
+        form.addRow(PIXEL_SIZE_LABEL, px_layout)
 
         # Membrane options
         self.membrane_options = QWidget()
         ml = QFormLayout(self.membrane_options)
         self.cell_radius = _spin(STRUCTURE_SPECS["cell_radius"])
-        ml.addRow("Cell Radius:", self.cell_radius)
+        ml.addRow("Cell Radius (µm):", self.cell_radius)
         self.membrane_thickness = _spin(STRUCTURE_SPECS["membrane_thickness"])
         ml.addRow("Membrane Thickness:", self.membrane_thickness)
         form.addRow(self.membrane_options)
@@ -109,7 +109,7 @@ class BiologicalSimulationWidget(QWidget):
         self.nucleus_options = QWidget()
         nl = QFormLayout(self.nucleus_options)
         self.nucleus_radius = _spin(STRUCTURE_SPECS["nucleus_radius"])
-        nl.addRow("Nucleus Radius:", self.nucleus_radius)
+        nl.addRow("Nucleus Radius (µm):", self.nucleus_radius)
         self.nucleus_thickness = _spin(STRUCTURE_SPECS["nucleus_thickness"])
         nl.addRow("Nucleus Thickness:", self.nucleus_thickness)
         form.addRow(self.nucleus_options)
@@ -126,15 +126,15 @@ class BiologicalSimulationWidget(QWidget):
         self.neuron_options = QWidget()
         nrl = QFormLayout(self.neuron_options)
         self.soma_radius = _spin(STRUCTURE_SPECS["soma_radius"])
-        nrl.addRow("Soma Radius:", self.soma_radius)
+        nrl.addRow("Soma Radius (µm):", self.soma_radius)
         self.axon_length = _spin(STRUCTURE_SPECS["axon_length"])
-        nrl.addRow("Axon Length:", self.axon_length)
+        nrl.addRow("Axon Length (µm):", self.axon_length)
         self.axon_width = _spin(STRUCTURE_SPECS["axon_width"])
-        nrl.addRow("Axon Width:", self.axon_width)
+        nrl.addRow("Axon Width (µm):", self.axon_width)
         self.num_dendrites = _spin(STRUCTURE_SPECS["num_dendrites"])
         nrl.addRow("Number of Dendrites:", self.num_dendrites)
         self.dendrite_length = _spin(STRUCTURE_SPECS["dendrite_length"])
-        nrl.addRow("Dendrite Length:", self.dendrite_length)
+        nrl.addRow("Dendrite Length (µm):", self.dendrite_length)
         form.addRow(self.neuron_options)
 
         self.structure_combo.currentTextChanged.connect(self._toggle_structure_options)
@@ -189,7 +189,7 @@ class BiologicalSimulationWidget(QWidget):
             "nucleus_thickness": self.nucleus_thickness.value(),
             "er_density": self.er_density.value(),
             "cell_type": self.cell_type_combo.currentText(),
-            # (z, y, x): the order BiologicalSimulator expects (the form shows x, y, z)
+            # (z, y, x): the order BiologicalSimulator expects and the form shows
             "pixel_size": (
                 self.pixel_size_z.value(),
                 self.pixel_size_y.value(),

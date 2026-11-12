@@ -209,3 +209,48 @@ class TestAngularRecordingSpatialOnly:
             for c in range(3):  # each channel rotated in the same (z, y) plane as 4D data
                 np.testing.assert_allclose(out[:, c], rotate(d5[:, c], 20, axes=(1, 2), reshape=False,
                                                              mode="constant", cval=0))
+
+
+class TestNeuronLengthsInMicrometres:
+    """Axon length / width and dendrite length were voxel counts while radii were micrometres, so changing the
+    voxel size changed the soma but not the axon or dendrites."""
+
+    def _row_extent(self, cls, px, monkeypatch):
+        monkeypatch.setattr(np.random, "randint", lambda lo, hi=None: 0)          # terminals centred on the axon end
+        monkeypatch.setattr(np.random, "uniform", lambda *a, **k: 0.5 * np.pi)   # one dendrite along +y
+        size = (20, 120, 160)  # room for 26 um of soma + axon at 0.4 um voxels and a 10 um dendrite at 0.25 um
+        _, interior, _ = cls(size, 1).generate_cell_shape(
+            "neuron", size, px, soma_radius=5, axon_length=20, axon_width=2, num_dendrites=1, dendrite_length=10)
+        c = [s // 2 for s in size]
+        xs = np.nonzero(interior[c[0], c[1], :])[0]
+        ys = np.nonzero(interior[c[0], :, c[2]])[0]
+        return (xs.max() - c[2]) * px[2], (ys.max() - c[1]) * px[1]
+
+    @pytest.mark.parametrize("px", [(1.0, 1.0, 1.0), (1.0, 0.5, 0.5), (2.0, 0.25, 0.4)])
+    def test_physical_extent(self, px, monkeypatch):
+        from simulator import BiologicalSimulator
+        sims = [BiologicalSimulator] + ([_monolith().BiologicalSimulator] if _monolith() else [])
+        for cls in sims:
+            ax, dend = self._row_extent(cls, px, monkeypatch)
+            assert ax == pytest.approx(5 + 20 + 1, abs=1.0 + px[2]), (cls.__module__, px, ax)  # soma + axon + terminal
+            assert 10 <= dend <= 10 + 3 * px[1], (cls.__module__, px, dend)              # + 2-voxel dilation
+
+
+class TestPixelSizeLabel:
+    """The form said "Pixel Size (x, y, z)" with no unit; it is micrometres, now shown in (z, y, x) order."""
+
+    @pytest.mark.parametrize("module", ["gui.simulation_widgets", "simulateLightSheetData"])
+    def test_label_and_order(self, module):
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        pytest.importorskip("PyQt5")
+        import importlib
+        from PyQt5.QtWidgets import QApplication, QLabel
+        _app = QApplication.instance() or QApplication([])  # noqa: F841
+        w = importlib.import_module(module).BiologicalSimulationWidget()
+        labels = [lab.text() for lab in w.findChildren(QLabel) if "ixel size" in lab.text()]
+        assert labels and "µm" in labels[0] and "z, y, x" in labels[0], labels
+        from PyQt5.QtWidgets import QHBoxLayout
+        rows = [r for r in w.findChildren(QHBoxLayout) if r.indexOf(w.pixel_size_z) >= 0]
+        assert len(rows) == 1
+        row = rows[0]
+        assert [row.indexOf(w.pixel_size_z), row.indexOf(w.pixel_size_y), row.indexOf(w.pixel_size_x)] == [0, 1, 2]

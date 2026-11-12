@@ -1,6 +1,6 @@
 // Control panel of the simulator page, built from the specs served by /api/params (sim_params.py + web specs).
 // Units are shown on every control: "um" lengths are compared with voxel offset x voxel size (micrometres),
-// "voxels" lengths are voxel counts, as in simulator.py.
+// "voxels" are voxel counts, as in simulator.py.
 import { esc, slider } from './core.js';
 
 const UNIT = { um: ' µm', voxels: ' vox', 'voxels/volume': ' vox/volume', 'voxels^2/step': ' vox²/step', fraction: '', count: '', steps: '', volumes: '', 'a.u.': '', '': '' };
