@@ -28,17 +28,17 @@ A Python application for generating and visualizing synthetic 3D biological data
 
 ## Architecture
 
-The entire application lives in a single file (`simulateLightSheetData.py`, ~2700 lines) containing:
+The simulation code is split into Qt-free modules (`simulator.py`, `data_generator.py`, `structure_pipeline.py`,
+`sim_params.py`, `utils.py`) and a PyQt5 GUI package (`gui/`). The original single-file application
+`simulateLightSheetData.py` (~2900 lines, its own copies of the classes) is still the entry point that `python
+simulateLightSheetData.py` launches. See [`INTERFACE.md`](INTERFACE.md) for the module map.
 
 | Class | Purpose |
 |---|---|
-| `BiologicalSimulator` | Core simulation engine for diffusion, transport, and structure generation |
-| `BiologicalSimulationWidget` | Tabbed QWidget for configuring simulation parameters |
-| `BiologicalSimulationWindow` | QMainWindow wrapping the simulation widget with 3D OpenGL view |
-| `LightsheetViewer` | QMainWindow for viewing generated data with 2D slices and analysis tools |
-
-Helper functions:
-- `line_3d()`: 3D Bresenham line algorithm for cytoskeleton path generation
+| `BiologicalSimulator` | Cell shapes, membrane, nucleus, ER, protein diffusion (calcium and transport are stubs) |
+| `DataGenerator` / `VolumeProcessor` | Moving-blob time series, angular-recording rotation, filtering, TIFF/NPY I/O |
+| `BiologicalSimulationWidget` / `BiologicalSimulationWindow` | Parameter form for the biological simulation |
+| `LightsheetViewer` | Main window with XY/XZ/YZ slices, 3D view, blob detection and playback |
 
 ## Requirements
 
@@ -84,6 +84,34 @@ Built with **PyQt5** and **pyqtgraph.opengl** for 3D rendering.
 | Spatial analysis | scipy.spatial (cKDTree), scipy.spatial.transform |
 | Visualization | matplotlib (for 2D plots), pyqtgraph.opengl (for 3D) |
 
+
+## Web interface and static site
+
+The simulator also runs in the browser: **https://gddickinson.github.io/lightsheet_simulator/** (published by
+`.github/workflows/pages.yml` on every push to `main`).
+
+- **Simulator**: seeded cells (spherical, neuron, epithelial, muscle) with membrane, nucleus and ER, the moving-blob
+  time series, or protein diffusion; an acquisition step (Gaussian blur with sigma in µm per axis, additive Gaussian
+  noise); XY / XZ / ZY slices, plane and time sliders, max projection, PNG of the XY view and an ImageJ TIFF stack with
+  the voxel size in the file. Units are µm throughout (voxel size in µm per voxel, z, y, x).
+- **Cross-check**: the same seeded volumes built by the Python code and by the JS port, compared channel by channel.
+  The JS reproduces NumPy's legacy Mersenne Twister, so the volumes agree voxel for voxel (to rounding).
+- The JS engine (`web/static/np_random.js`, `ndimage.js`, `cells_engine.js`, `dynamics_engine.js`, `pipeline.js`)
+  is tested against fixtures computed by the Python code (`node web/static/engine.test.mjs`).
+
+![Home](docs/img/home.png)
+![Simulator: neuron with membrane, nucleus and ER](docs/img/sim.png)
+![Simulator: moving blobs](docs/img/sim_blobs.png)
+![Cross-check](docs/img/check.png)
+
+### Run the web app
+
+```bash
+pip install -r requirements-web.txt
+python run_web.py                    # http://127.0.0.1:8204
+python -m pytest -q tests            # desktop + web tests
+python scripts/build_static.py       # static site in site/
+```
 
 ---
 *Built with AI assistance from [Claude (Anthropic)](https://claude.com/).*

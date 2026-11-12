@@ -1,0 +1,7 @@
+fastapi==0.162.2
+httpx==0.28.1
+pytest==9.2.0
+uvicorn==0.54.0
+numpy==2.5.4
+scipy==1.18.1
+tifffile==2026.11.8

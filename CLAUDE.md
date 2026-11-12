@@ -13,6 +13,8 @@ George's global Claude preferences live in `~/.claude/CLAUDE.md` and apply to ev
 
 ## Project navigation
 
+@INTERFACE.md
+
 See [`INTERFACE.md`](./INTERFACE.md) for a navigation map of this repository's modules and how they connect. Read `INTERFACE.md` before opening individual source files.
 
 ## Working with Claude on this repo

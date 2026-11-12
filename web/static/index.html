@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lightsheet Simulator</title>
+<meta name="description" content="A Python-based simulation tool for generating and visualizing 3D biological datasets, typically used in light-sheet microscopy. The simulator runs in your browser.">
+<link rel="icon" href="static/icon.svg">
+<link rel="stylesheet" href="static/style.css">
+<link rel="stylesheet" href="static/style_app.css">
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<header class="top">
+  <a class="brand" href="#/"><span class="mark"></span>Lightsheet Simulator</a>
+  <nav class="groups">
+    <!-- plain links (<a data-nav="name" href="#/name">) or groups: <details><summary>Group</summary><div class="menu">...</div></details> -->
+    <a href="#/sim" data-nav="sim">Simulator</a>
+    <a href="#/check" data-nav="check">Cross-check</a>
+    <a href="#/about" data-nav="about">About</a>
+  </nav>
+  <div class="right"><a class="small mute" href="https://github.com/gddickinson/lightsheet_simulator" target="_blank" rel="noopener">GitHub</a></div>
+</header>
+<main id="app" tabindex="-1"></main>
+<footer class="foot">Lightsheet Simulator · <a href="https://github.com/gddickinson/lightsheet_simulator">source on GitHub</a> · <span id="mode"></span></footer>
+<script type="module" src="static/main.js"></script>
+</body>
+</html>
