@@ -169,3 +169,43 @@ class TestNucleusRadiusTakesEffect:
         zz, yy, xx = np.nonzero(nuc)
         assert (zz.max() - zz.min() + 1) * 2.0 == pytest.approx(10, abs=2.1)   # 5 um radius along z (2 um voxels)
         assert (xx.max() - xx.min() + 1) * 0.5 == pytest.approx(10, abs=0.6)   # and along x (0.5 um voxels)
+
+
+class TestAngularRecordingSpatialOnly:
+    """simulate_angular_recording rotated axes (1, 2); for the GUI's (t, c, z, y, x) data that rotated the channel
+    axis against z, mixing channels."""
+
+    def _gens(self):
+        from data_generator import DataGenerator
+        gens = [DataGenerator]
+        if _monolith():
+            gens.append(_monolith().DataGenerator)
+        return gens
+
+    @pytest.mark.parametrize("method", ["simulate_angular_recording", "correct_angular_recording"])
+    def test_channels_not_mixed(self, method):
+        data = np.zeros((2, 2, 12, 16, 16))
+        data[:, 0, 4:8, 6:10, 6:10] = 1.0  # channel 1 empty
+        for cls in self._gens():
+            g = cls()
+            g.data = data
+            out = getattr(g, method)(30)
+            assert out.shape == data.shape
+            assert np.abs(out[:, 1]).max() == 0, cls.__module__
+            assert out[:, 0].sum() > 0
+
+    def test_spatial_plane_and_4d_unchanged(self):
+        from scipy.ndimage import rotate
+        rng = np.random.default_rng(1)
+        d5 = rng.random((2, 3, 8, 10, 12))
+        d4 = d5[:, 0]
+        for cls in self._gens():
+            g = cls()
+            g.data = d4
+            np.testing.assert_allclose(g.simulate_angular_recording(20),
+                                       rotate(d4, 20, axes=(1, 2), reshape=False, mode="constant", cval=0))
+            g.data = d5
+            out = g.simulate_angular_recording(20)
+            for c in range(3):  # each channel rotated in the same (z, y) plane as 4D data
+                np.testing.assert_allclose(out[:, c], rotate(d5[:, c], 20, axes=(1, 2), reshape=False,
+                                                             mode="constant", cval=0))

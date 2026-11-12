@@ -32,6 +32,7 @@ from scipy.spatial.transform import Rotation
 
 from utils import line_3d  # 3D Bresenham line (shared with the modular package)
 from simulator import BiologicalSimulator as _ModularSimulator  # shared method implementations
+from data_generator import DataGenerator as _ModularDataGenerator  # shared method implementations
 
 
 class BiologicalSimulator:
@@ -849,19 +850,10 @@ class DataGenerator:
         self.data = time_series
         return time_series
 
-    def simulate_angular_recording(self, angle: float) -> np.ndarray:
-        """Simulate an angular recording by rotating the volume."""
-        if self.data is None:
-            raise ValueError("No data to rotate. Generate data first.")
-        rotated_data = rotate(self.data, angle, axes=(1, 2), reshape=False, mode='constant', cval=0)
-        return rotated_data
-
-    def correct_angular_recording(self, angle: float) -> np.ndarray:
-        """Correct an angular recording by rotating the volume back."""
-        if self.data is None:
-            raise ValueError("No data to correct. Generate data first.")
-        corrected_data = rotate(self.data, -angle, axes=(1, 2), reshape=False, mode='constant', cval=0)
-        return corrected_data
+    # Shared with data_generator.py: rotate only the spatial axes, never the channel axis
+    _rotation_axes = staticmethod(_ModularDataGenerator._rotation_axes)
+    simulate_angular_recording = _ModularDataGenerator.simulate_angular_recording
+    correct_angular_recording = _ModularDataGenerator.correct_angular_recording
 
     def save_tiff(self, filename: str):
         """Save the data as a TIFF stack."""

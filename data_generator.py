@@ -259,17 +259,28 @@ class DataGenerator:
     # Angular recording
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _rotation_axes(ndim):
+        """The first two spatial axes: the last three axes are spatial ((z, y, x), or (x, y, z) for
+        generate_time_series), any leading time / channel axes are left alone."""
+        if ndim < 3:
+            raise ValueError("Angular recording needs at least a 3-D volume.")
+        return (ndim - 3, ndim - 2)
+
     def simulate_angular_recording(self, angle: float) -> np.ndarray:
-        """Simulate an angular recording by rotating the volume."""
+        """Simulate an angular recording by rotating every volume (in degrees, in the plane of the first two
+        spatial axes; channels and time points are not mixed)."""
         if self.data is None:
             raise ValueError("No data to rotate. Generate data first.")
-        return rotate(self.data, angle, axes=(1, 2), reshape=False, mode="constant", cval=0)
+        return rotate(self.data, angle, axes=self._rotation_axes(self.data.ndim), reshape=False,
+                      mode="constant", cval=0)
 
     def correct_angular_recording(self, angle: float) -> np.ndarray:
-        """Correct an angular recording by rotating the volume back."""
+        """Correct an angular recording by rotating every volume back (same axes as simulate_angular_recording)."""
         if self.data is None:
             raise ValueError("No data to correct. Generate data first.")
-        return rotate(self.data, -angle, axes=(1, 2), reshape=False, mode="constant", cval=0)
+        return rotate(self.data, -angle, axes=self._rotation_axes(self.data.ndim), reshape=False,
+                      mode="constant", cval=0)
 
     # ------------------------------------------------------------------
     # I/O
